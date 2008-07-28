@@ -5,6 +5,8 @@ SECTIONS {
 	
 	.text :{
 		*(.text)
+		*(.rodata)
+		*(.data)
 	}
 	
 	.rodata ALIGN (0x1000) : {
