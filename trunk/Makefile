@@ -5,7 +5,7 @@ CFLAGS = -Wall -Wextra -nostdlib -nostartfiles -nodefaultlibs -fleading-undersco
 AS = nasm
 ASFLAGS = -f elf
 
-OBJS = kernel.o loader.o kmem.o console.o misc_s.o gdt.o idt.o isrs.o irq.o timer.o kbd.o
+OBJS = kernel.o loader.o kmem.o console.o misc_s.o gdt.o idt.o isrs.o irq.o timer.o kbd.o rand.o
 
 all: $(OBJS)
 	$(LD) $(LDFLAGS) -o kernel.bin $(OBJS)
