@@ -78,6 +78,8 @@ unsigned char kbdus[256] = {
 	0, /* All other keys are undefined */
 };
 
+unsigned int keyDown = 0;
+
 /* Handles the keyboard interrupt */
 void keyboard_handler(struct regs *r) {
 	unsigned char scancode;
@@ -88,6 +90,8 @@ void keyboard_handler(struct regs *r) {
 	/* If the top bit of the byte we read from the keyboard is
 	 *  set, that means that a key has just been released */
 	if (scancode & 0x80) {
+		//keyDown = 0;
+		return;
 		/* You can use this one to see if the user released the
 		 *  shift, alt, or control keys... */
 		switch (scancode - 0x80) {
@@ -99,6 +103,7 @@ void keyboard_handler(struct regs *r) {
 			break;
 		}
 	} else {
+		keyDown = scancode; return;
 		/* Here, a key was just pressed. Please note that if you
 		 *  hold a key down, you will get repeated key press
 		 *  interrupts. */

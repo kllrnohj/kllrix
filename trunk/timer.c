@@ -14,7 +14,7 @@ void timer_phase(int hz)
 
 /* This will keep track of how many ticks that the system
 *  has been running for */
-int timer_ticks = 0;
+unsigned int timer_ticks = 0;
 
 /* Handles the timer. In this case, it's very simple: We
 *  increment the 'timer_ticks' variable every time the
@@ -28,7 +28,7 @@ void timer_handler(struct regs *r)
     
     /* Every 18 clocks (approximately 1 second), we will
     *  display a message on the screen */
-    if (timer_ticks % 100 == 0)
+    if (timer_ticks % 18 == 0)
     {
         //kputs("One second has passed\n");
     }

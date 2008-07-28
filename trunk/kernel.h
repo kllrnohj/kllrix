@@ -61,6 +61,9 @@ enum cpuid_requests {
 
 typedef unsigned long dword;
 
+#define inportb inb
+#define outportb outb
+
 unsigned char inb (unsigned short _port);
 void outb (unsigned short _port, unsigned char _data);
 inline void cpuid(int code, dword *a, dword *d);
