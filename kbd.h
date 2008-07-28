@@ -11,4 +11,11 @@ extern unsigned char kbdus[256];
 void keyboard_handler(struct regs *r);
 void keyboard_install();
 
+// for my simple "game"
+extern unsigned int keyDown;
+#define ARROW_LEFT 75
+#define ARROW_RIGHT 77
+#define ARROW_UP 72
+#define ARROW_DOWN 80
+
 #endif /*KBD_H_*/
