@@ -13,6 +13,7 @@ char* commandHelp[] = {
 	"\tstatus: Displays some basic status information about the OS\n",
 	"\trand: Rand expects two parameters, the first being the minimum number and the second the max, and it uses these to construct a pseudo-random number.\n",
 	"\thelp: Well, I think you figured this one out... but it displays this nifty information!\n",
+	"\tsnake: Plays Snake!!\nCONTROLS: Arrow keys: move snake\n",
 };
 
 void cprint(int argc, char** argv){
