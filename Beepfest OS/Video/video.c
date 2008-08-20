@@ -1,10 +1,1599 @@
 #include "video.h"
 
+#define COLOR_BLACK 0
+#define COLOR_GRAY 3
+#define COLOR_RED 4
+#define COLOR_PURPLE 5
+
 static unsigned int screen_x = 0;
 static unsigned int screen_y = 0;
-static unsigned char* VGA = (unsigned char*)0xA0000;
+extern char* pVGAVirtualPointer;
+//static unsigned char* VGA = getVGAVirtualPointer();
 
-void setMode(unsigned char mode);
+static int MiscOutputReg = 0x3c2;
+static int DataReg = 0x3c0;
+static int AddressReg = 0x3c0;
+
+static char mode13[][32] = {
+  { 0x03, 0x01, 0x0f, 0x00, 0x0e },            // 0x3c4, index 0-4
+  { 0x5f, 0x4f, 0x50, 0x82, 0x54, 0x80, 0xbf, 0x1f,
+    0x00, 0x41, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x9c, 0x0e, 0x8f, 0x28, 0x40, 0x96, 0xb9, 0xa3,
+    0xff },                                    // 0x3d4, index 0-0x18
+  { 0, 0, 0, 0, 0, 0x40, 0x05, 0x0f, 0xff },   // 0x3ce, index 0-8
+  { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 
+    0x41, 0, 0x0f, 0, 0 }                      // 0x3c0, index 0-0x14
+};
+
+char console[2000]; // the actual console for VGA mode
+// consider making it 4000 for buffer?
+
+struct FONT_CHAR{
+	// images are 4px by 8px
+	unsigned char image[32];
+};
+
+void drawChar(struct FONT_CHAR toDraw){
+	unsigned short px, py, index;
+	px = screen_x * 2;
+	screen_x += 2;
+	py = screen_y * 8;
+	index = (py << 8) + (py << 6) + px;
+	int x;
+	int y;
+	for(y = 0; y < 8; y++){
+		for(x = 0; x < 4; x++){
+			if(toDraw.image[(y * 4) + x]){
+				putPixel(px + x, py + y, COLOR_GRAY);
+			}else{
+				putPixel(px + x, py + y, COLOR_BLACK);
+			}
+		}
+	}
+}
+
+struct FONT_CHAR getCharacterImage(unsigned char character){
+	struct FONT_CHAR result;
+	switch(character){
+		case '`':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 1, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '1':
+		{
+			char temp[32] = {
+				0, 1, 0, 0,
+				1, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '2':
+		{
+			char temp[32] = {
+				0, 1, 1, 0,
+				1, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 1, 0, 0,
+				1, 0, 0, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '3':
+		{
+			char temp[32] = {
+				1, 1, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				1, 1, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '4':
+		{
+			char temp[32] = {
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '5':
+		{
+			char temp[32] = {
+				1, 1, 1, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 1, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '6':
+		{
+			char temp[32] = {
+				1, 1, 1, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '7':
+		{
+			char temp[32] = {
+				1, 1, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '8':
+		{
+			char temp[32] = {
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '9':
+		{
+			char temp[32] = {
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '0':
+		{
+			char temp[32] = {
+				0, 1, 0, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				0, 1, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '-':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '=':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '\\':
+		{
+			char temp[32] = {
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '[':
+		{
+			char temp[32] = {
+				1, 1, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 1, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case ']':
+		{
+			char temp[32] = {
+				0, 1, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case ';':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				1, 0, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '\'':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case ',':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 1, 0, 0,
+				1, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '.':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '/':
+		{
+			char temp[32] = {
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '~':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 1, 0, 1,
+				1, 0, 1, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '!':
+		{
+			char temp[32] = {
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '@':
+		{
+			char temp[32] = {
+				1, 1, 1, 1,
+				1, 0, 0, 1,
+				1, 0, 0, 1,
+				1, 0, 0, 1,
+				1, 0, 1, 1,
+				1, 0, 1, 1,
+				1, 0, 1, 1,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '#':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 1, 1, 0,
+				1, 1, 1, 1,
+				0, 1, 1, 0,
+				1, 1, 1, 1,
+				0, 1, 1, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '$':
+		{
+			char temp[32] = {
+				0, 1, 0, 0,
+				1, 1, 1, 0,
+				1, 0, 0, 0,
+				1, 1, 1, 0,
+				0, 0, 1, 0,
+				1, 1, 1, 0,
+				0, 1, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '%':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 0, 1,
+				0, 1, 1, 0,
+				1, 0, 0, 0,
+				0, 0, 1, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '^':
+		{
+			char temp[32] = {
+				0, 1, 0, 0,
+				1, 0, 1, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '&':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				1, 1, 1, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 1,
+				1, 1, 0, 1,
+				1, 0, 1, 0,
+				1, 1, 0, 1,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '*':
+		{
+			char temp[32] = {
+				1, 1, 0, 1,
+				0, 1, 1, 0,
+				0, 1, 1, 0,
+				1, 0, 1, 1,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '(':
+		{
+			char temp[32] = {
+				0, 0, 1, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case ')':
+		{
+			char temp[32] = {
+				0, 1, 0, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 1, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '_':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 1, 1, 1,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '+':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				1, 1, 1, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '|':
+		{
+			char temp[32] = {
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '{':
+		{
+			char temp[32] = {
+				0, 1, 1, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				1, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '}':
+		{
+			char temp[32] = {
+				1, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 1, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				1, 1, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case ':':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '"':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 1, 1, 0,
+				0, 1, 1, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '<':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 1, 0,
+				0, 1, 0, 0,
+				1, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 1, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '>':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				1, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 1, 0,
+				0, 1, 0, 0,
+				1, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case '?':
+		{
+			char temp[32] = {
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 1, 0, 0,
+				0, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case ' ':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'a':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 1, 1, 0,
+				0, 0, 1, 0,
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'b':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'c':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 1, 1, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'd':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'e':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				1, 0, 0, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'f':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 1, 1, 0,
+				1, 0, 0, 0,
+				1, 1, 1, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'g':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				1, 1, 1, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'h':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'i':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'j':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 0, 1, 0,
+				0, 0, 0, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				1, 1, 1, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'k':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 0, 1, 0,
+				1, 1, 0, 0,
+				1, 0, 0, 0,
+				1, 1, 0, 0,
+				1, 0, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'l':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 1, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'm':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'n':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 1, 0, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'o':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'p':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'q':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'r':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 1, 1, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 's':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 1, 1, 0,
+				1, 0, 0, 0,
+				1, 1, 1, 0,
+				0, 0, 1, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 't':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				1, 1, 1, 0,
+				0, 1, 0, 0,
+				0, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'u':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'v':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				0, 1, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'w':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'x':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 0, 1, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				1, 0, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'y':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				1, 1, 1, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'z':
+		{
+			char temp[32] = {
+				0, 0, 0, 0,
+				0, 0, 0, 0,
+				1, 1, 1, 0,
+				0, 0, 1, 0,
+				1, 1, 1, 0,
+				1, 0, 0, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'A':
+		{
+			char temp[32] = {
+				0, 1, 0, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'B':
+		{
+			char temp[32] = {
+				1, 1, 0, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 0, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'C':
+		{
+			char temp[32] = {
+				0, 1, 1, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				0, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'D':
+		{
+			char temp[32] = {
+				1, 1, 0, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'E':
+		{
+			char temp[32] = {
+				1, 1, 1, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 1, 1, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'F':
+		{
+			char temp[32] = {
+				1, 1, 1, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 1, 1, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'G':
+		{
+			char temp[32] = {
+				1, 1, 1, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 1, 1,
+				1, 0, 1, 1,
+				1, 1, 1, 1,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'H':
+		{
+			char temp[32] = {
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'I':
+		{
+			char temp[32] = {
+				1, 1, 1, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'J':
+		{
+			char temp[32] = {
+				1, 1, 1, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				1, 1, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'K':
+		{
+			char temp[32] = {
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 0, 0,
+				1, 0, 0, 0,
+				1, 1, 0, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'L':
+		{
+			char temp[32] = {
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'M':
+		{
+			char temp[32] = {
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'N':
+		{
+			char temp[32] = {
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				1, 1, 1, 0,
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'O':
+		{
+			char temp[32] = {
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'P':
+		{
+			char temp[32] = {
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'Q':
+		{
+			char temp[32] = {
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 1,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'R':
+		{
+			char temp[32] = {
+				1, 1, 0, 0,
+				1, 0, 1, 0,
+				1, 1, 0, 0,
+				1, 1, 0, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'S':
+		{
+			char temp[32] = {
+				0, 1, 1, 0,
+				1, 0, 0, 0,
+				1, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 1, 0,
+				0, 0, 1, 0,
+				1, 1, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'T':
+		{
+			char temp[32] = {
+				1, 1, 1, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'U':
+		{
+			char temp[32] = {
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'V':
+		{
+			char temp[32] = {
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				0, 1, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'W':
+		{
+			char temp[32] = {
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 0,
+				1, 0, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'X':
+		{
+			char temp[32] = {
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'Y':
+		{
+			char temp[32] = {
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		case 'Z':
+		{
+			char temp[32] = {
+				1, 1, 1, 0,
+				0, 0, 1, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				0, 1, 0, 0,
+				1, 0, 0, 0,
+				1, 1, 1, 0,
+				0, 0, 0, 0,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+		default:
+		{
+			char temp[32] = {
+				1, 0, 1, 1,
+				1, 0, 1, 0,
+				1, 0, 1, 0,
+				1, 1, 1, 1,
+				0, 1, 0, 1,
+				0, 1, 0, 1,
+				0, 1, 0, 1,
+				1, 1, 0, 1,
+			};
+			int x;
+			for(x = 0; x < 32; x++)
+				result.image[x] = temp[x];
+		}break;
+	}
+	return result;
+}
 
 void kgetXY(void){
 	unsigned char* biosxy = (unsigned char*)0x450;
@@ -23,19 +1612,25 @@ static void kprint_scroll(void){
 	// this functions scrolls the display upwards
 
 	// so start with moving the previous text up
-	copy((void*)0xB8000, (void*)(0xB8000 + 160), 3840);
+	copy(pVGAVirtualPointer, (void*)(pVGAVirtualPointer + (320 * 8)), (64000-(320 * 8)));
+	//copy((void*)0xB8000, (void*)(0xB8000 + 160), 3840);
 	// 0xB8000 is video memory
 	// 0xB8000 + 160 = 80 * 2 because each character is a byte,
 	// then its attribute is another byte, display is 80 characters wide
 	// 3840 = 160 * 24 where 24 is height of display minus 1, 160 like before
 
 	// clear bottom line
-	unsigned int* tmp = (unsigned int*)(0xB8000 + (160 * 24));
-	unsigned int i;
-	for(i = 0; i < (80 / 2); i++){
-		// i is 4 bytes, so thats why 80/2, we do two at once
-		tmp[i] = ((7 | ' ') << 16) | (7 | ' '); // see? 4 bytes
-	}
+	int x;
+	int y;
+	for(x = 0; x < 320; x++)
+		for(y = 0; y < 8; y++)
+			putPixel(x, y+(200 - 8), 0);
+	//unsigned int* tmp = (unsigned int*)(0xB8000 + (160 * 24));
+	//unsigned int i;
+	//for(i = 0; i < (80 / 2); i++){
+	//	// i is 4 bytes, so thats why 80/2, we do two at once
+	//	tmp[i] = ((7 | ' ') << 16) | (7 | ' '); // see? 4 bytes
+	//}
 }
 
 void kprint_putchar(int c){
@@ -45,6 +1640,15 @@ void kprint_putchar(int c){
 		}return;
 		case '\b':
 		{
+			if(screen_x >= 2)
+				screen_x -= 2;
+			else{
+				screen_x = 0;
+				screen_y--;
+			}
+			drawChar(getCharacterImage(' '));
+			screen_x-=2;
+			/*
 			int x = 1;
 			unsigned char doLoop = 0;
 			if(*(unsigned short*)(0xB8000 + (screen_y * 160) + screen_x-2) == 0)
@@ -62,6 +1666,7 @@ void kprint_putchar(int c){
 					*(unsigned short*)(0xB8000 + (screen_y * 160) + screen_x) = 0;
 				}
 			}
+			*/
 		}break;
 		case '\n':
 		{
@@ -84,8 +1689,11 @@ void kprint_putchar(int c){
 		}break;
 		default:
 		{
+			struct FONT_CHAR fc = getCharacterImage(c);
+			drawChar(fc);
+			/*
 			*(unsigned short*)(0xB8000 + (screen_y * 160) + screen_x) = (c | (7<<8)); // 7 << 8 is for attribute
-			screen_x += 2;
+			screen_x += 2;*/
 	
 			if(screen_x > 158){
 				screen_x = 0;
@@ -165,162 +1773,55 @@ void clrscr(void){
 	// 2 bytes a char
 	screen_x = 0;
 	screen_y = 0;
-
-	unsigned char temp = 0;
+	
 	unsigned int x;
-	unsigned char* videoRam = (unsigned char*)0xB8000;
-	for(x = 0; x < (25 * 80 * 2); x+=2){
-		videoRam[x] = temp;
-		videoRam[x+1] = temp;
+	for(x = 0; x < 64000; x++){
+		pVGAVirtualPointer[x] = COLOR_BLACK;
 	}
 }
 
 void putPixel(int x, int y, unsigned char color){
 	/* y << 8 = y * (2 ^ 8) and y << 6 = y * (2^6) = y * 320 (320 * 200) */
-	VGA[(y << 8) + (y << 6) + x] = color;
+	pVGAVirtualPointer[(y << 8) + (y << 6) + x] = color;
 }
 
-void setMode(unsigned char mode){
-	/*
-		0x3C0 address -> 0x3C1 data
-		0x3C2 is write only for MOR, read at 0x3CC
-		0x3C4 address -> 0x3C5 data
-		0x3CE address -> 0x3CF data
-		0x3D4 address -> 0x3D5 data
-	*/
-	/* set mode to 13h */
-	unsigned char throwaway = in(0x3DA);
-	out(0x3C0, 0x10);
-	out(0x3C0, 0x41);
-	
-	throwaway = in(0x3DA);
-	out(0x3C0, 0x11);
-	out(0x3C0, 0x00);
-	
-	throwaway = in(0x3DA);
-	out(0x3C0, 0x12);
-	out(0x3C0, 0x0F);
-	
-	throwaway = in(0x3DA);
-	out(0x3C0, 0x13);
-	out(0x3C0, 0x00);
-	
-	throwaway = in(0x3DA);
-	out(0x3C0, 0x14);
-	out(0x3C0, 0x00);
-	
-	out(0x3C2, 0x63);
-	
-	out(0x3C4, 0x01);
-	out(0x3C5, 0x01);
-	
-	out(0x3C4, 0x03);
-	out(0x3C5, 0x00);
-	
-	out(0x3C4, 0x04);
-	out(0x3C5, 0x0E);
-	
-	out(0x3CE, 0x05);
-	out(0x3CF, 0x40);
-	
-	out(0x3CE, 0x06);
-	out(0x3CF, 0x05);
-	
-	out(0x3D4, 0x11);
-	out(0x3D5, 0x8E);
-	
-	out(0x3D4, 0x00);
-	out(0x3D5, 0x5F);
-	out(0x3D4, 0x01);
-	out(0x3D5, 0x4F);
-	out(0x3D4, 0x02);
-	out(0x3D5, 0x50);
-	out(0x3D4, 0x03);
-	out(0x3D5, 0x82);
-	out(0x3D4, 0x04);
-	out(0x3D5, 0x54);
-	out(0x3D4, 0x05);
-	out(0x3D5, 0x80);
-	out(0x3D4, 0x06);
-	out(0x3D5, 0xBF);
-	out(0x3D4, 0x07);
-	out(0x3D5, 0x1F);
-	out(0x3D4, 0x08);
-	out(0x3D5, 0x00);
-	out(0x3D4, 0x09);
-	out(0x3D5, 0x41);
-	out(0x3D4, 0x10);
-	out(0x3D5, 0x9C);
-	
-	out(0x3D4, 0x12);
-	out(0x3D5, 0x8F);
-	out(0x3D4, 0x13);
-	out(0x3D5, 0x28);
-	out(0x3D4, 0x14);
-	out(0x3D5, 0x40);
-	out(0x3D4, 0x15);
-	out(0x3D5, 0x96);
-	out(0x3D4, 0x16);
-	out(0x3D5, 0xB9);
-	out(0x3D4, 0x17);
-	out(0x3D5, 0xA3);
-	/*
-	/* CHANGE GRAPHICS MODE 
-	out(0x3CE, 0x05); // 0x3CE is address register, 0x05 is Graphics Mode Register
-	//unsigned char lol = in(0x3CF); // DEBUG STUFF
-	//kprintUN(lol, 16); // DEBUG STUFF
-	out(0x3CF, mode); // 0x3CF is data register, mode is video mode... hopefully.
-	
-	/* SET BIT MASK FOR & TO FF 
-	out(0x3CE, 0x08); // 0x3CE is address register, 0x08 is Bit Mask register
-	out(0x3CF, 0xFF); // 0x3CF is data register, 0xFF is filled bit field
-	
-	/* SET COLOR DON'T CARE REGISTER  /* DONT KNOW WHAT THIS DOES EXACTLY 
-	out(0x3CE, 0x07); // 0x3CE is address register, 0x07 is Color Don't Care Register
-	out(0x3CF, 0x0F); // SAY CHECK ALL PLANES (ONLY FIRST  4 BITS USED)
-	
-	/* SELECT MEMORY MAP AND DISABLE ALPHANUMERIC MODE (first bit is alphanumeric mode disable 
-	out(0x3CE, 0x06); // 0x3CE is address register, 0x06 is Miscellaneous Graphics Register
-	out(0x3CF, 0x01); // data register... bits 2-3 (from 0) are memory map select (00b: 128K region at A0000) bit 1 is Chain O/E (don't know what it does so i don't set it), disable alphanumeric mode.
-	
-	/* SET 0th PLANE AS OUR DEFAULT 
-	out(0x3CE, 0x04); // 0x3CE is address register, 0x04 is Read Map Select Register
-	out(0x3CF, 0x00); // use plane 0
-	
-	/* LOGICAL OPERATION IN 0x03 IS NOT USED, SO I ZERO IT, ROTATE COUNT WILL BE 0, SO MODE IS 0 
-	out(0x3CE, 0x03); // 0x3CE is address register, 0x03 is Data Rotate Register
-	out(0x3CF, 0x01); // turn off rotation and the logical operation
-	
-	/* COLOR COMPARE REGISTER, JUST SET ALL PLANES, EVEN THOUGH IM JUST USING ONE 
-	out(0x3CE, 0x02); // 0x3CE is address register, 0x02 is Color Compare Register
-	out(0x3CF, 0x0F); // 0x0F sets the first four bits, thus enabling the four planes
-	
-	/* WE DONT CARE ABOUT THIS REGISTER (Enable, Set/Reset Register [since it is only used in graphics mode 0 and we're in 3]) so I'll just enable all planes again 
-	out(0x3CE, 0x01); // 0x3CE is address register, 0x01 is enable set/reset register
-	out(0x3CF, 0x0F); // 0x0F for first four bits, four planes
-	
-	/* IMPORTANT Set/Reset Register used in mode 3, we set mode 0x0F to enable the planes 
-	out(0x3CE, 0x00); // 0x3CE is address register, 0x00 is Set/Reset Register
-	out(0x3CF, 0x0F); // 0x0F is first four bits, four planes
-	
-	
-	/*unsigned char temp = in(0x3DA);
-	out(0x3D4, 0xD);
-	temp = in(0x3B4);
-	out(0x3D4, 0xC);
-	temp |= (in(0x3B4) << 8);
-	//out(0x3C0, 0x10);
-	//temp = 10;//in(0x3C0);
-	kprintUN(temp, 16);
-	temp &= 0xFE;
-	//out(0x3c0, temp);*/
-	if(mode == 0x13){
-		int x;
-		for(x = 0; x < 64000; x++)
-			VGA[x] = (x % 256);
+void setMode(int xres, int yres, int bitdepth){
+	int i;
+	  
+	#define outb_p(a, b) outb(b, a)
+	#define outw_p(a, b) outw(b, a)
+	#define inb_p(a) inb(a)
+
+	outb_p(0x63, MiscOutputReg);
+	outb_p(0x00, 0x3da);
+
+	for (i=0; i < 5; i++) {
+		outb_p(i, 0x3c4);
+		outb_p(mode13[0][i], 0x3c4+1);
 	}
-	//__asm__ __volatile__ (
-	//	"movb $0x00, %%ah\n\t"
-	//	"movb %0, %%al\n\t"
-	//	"int $0x10" : : "r"(mode) : "%ah", "%al");
+	outw_p(0x0e11, 0x3d4);
+
+	for (i=0; i < 0x19; i++) {
+		outb_p(i, 0x3d4);
+		outb_p(mode13[1][i], 0x3d4+1);
+	}  
+
+	for (i=0; i < 0x9; i++) {
+		outb_p(i, 0x3ce);
+		outb_p(mode13[2][i], 0x3CF);
+	}
+
+	inb_p(0x3da);
+
+	for (i=0; i < 0x15; i++) {
+		inw(DataReg);
+		outb_p(i, AddressReg);
+		outb_p(mode13[3][i], DataReg);
+	}
+
+	outb_p(0x20, 0x3c0);
+	  
+	int x;
+	for(x = 0; x < 64000; x++)
+		pVGAVirtualPointer[x] = 0;
 }

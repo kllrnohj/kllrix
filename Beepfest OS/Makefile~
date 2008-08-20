@@ -5,7 +5,7 @@ CFLAGS = -Wall -Wextra -nostdlib -nostartfiles -nodefaultlibs -fno-leading-under
 AS = nasm
 ASFLAGS = -f elf
 
-OBJS = Boot/gdt.o Boot/idt.o Boot/irq.o Boot/isrs.o Boot/loader.o Console/console.o Console/consoleFunctions.o Console/SpaceInvaders.o Kernel/kernel.o Kernel/port.o Kernel/rand.o Kernel/timer.o Keyboard/kb.o Memory/page.o Memory/pageasm.o Video/video.o Memory/kmem.o
+OBJS = Boot/gdt.o Boot/idt.o Boot/irq.o Boot/isrs.o Boot/loader.o Console/console.o Console/consoleFunctions.o Console/SpaceInvaders.o Kernel/kernel.o Kernel/port.o Kernel/rand.o Kernel/timer.o Keyboard/kb.o Memory/page.o Memory/pageasm.o Video/video.o
 
 all: $(OBJS)
 	$(LD) $(LDFLAGS) -o kernel.bin $(OBJS)
