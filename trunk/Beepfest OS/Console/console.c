@@ -3,7 +3,7 @@
 
 #define NULL 0
 
-int nbrCmds = 7;
+int nbrCmds = 8;
 char* commands[] = {
 	"print",
 	"spaceinvaders",
@@ -12,6 +12,7 @@ char* commands[] = {
 	"rand",
 	"help",
 	"snake",
+	"page",
 };
 void* commandFuncs[] = {
 	cprint,
@@ -21,6 +22,7 @@ void* commandFuncs[] = {
 	crand,
 	chelp,
 	csnake,
+	cpage,
 };
 
 int strlen(char* str){

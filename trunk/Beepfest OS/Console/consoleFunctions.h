@@ -8,6 +8,7 @@ void cstatus(int argc, char** argv);
 void crand(int argc, char** argv);
 void chelp(int argc, char** argv);
 void csnake(int argc, char** argv);
+void cpage(int argc, char** argv);
 
 #endif
 

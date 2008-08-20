@@ -4,6 +4,7 @@
 #include "../Kernel/timer.h"
 #include "console.h"
 #include "../Kernel/rand.h"
+#include "../Memory/kmem.h"
 
 extern int nbrCmds;
 char* commandHelp[] = {
@@ -14,6 +15,7 @@ char* commandHelp[] = {
 	"\trand: Rand expects two parameters, the first being the minimum number and the second the max, and it uses these to construct a pseudo-random number.\n",
 	"\thelp: Well, I think you figured this one out... but it displays this nifty information!\n",
 	"\tsnake: Plays Snake!!\nCONTROLS: Arrow keys: move snake\n",
+	"\tpage: Tests the paging techniques in the kernel\n",
 };
 
 void cprint(int argc, char** argv){
@@ -222,4 +224,29 @@ void csnake(int argc, char** argv){
 		// 18 "fps"
 		while (last_tick == get_timer_ticks());
 	}
+}
+
+void cpage(int argc, char** argv){
+	char* string = (char*)kAllocPage(); // so 4096 bytes... lol
+	char* string2 = (char*)kAllocPage();
+	char* string3 = (char*)kAllocPage();
+	kprint("Allocated Page, testing memory....\n");
+	int x;
+	for(x = 0; x < 4095; x++){
+		string[x] = 'A' + (x % 26);
+	} 
+	string[4095] = 0;
+	kprint("Memory filled successfully... Received Locations:\n");
+	kprintUN((unsigned int)string, 16);
+	kprint("\n");
+	kprintUN((unsigned int)string2, 16);
+	kprint("\n");
+	kprintUN((unsigned int)string3, 16);
+	kprint("\n");
+	//kprint(string);
+	kprint("\nMemory output successfully! Testing free...\n");
+	kFreePage(string);
+	kFreePage(string2);
+	kFreePage(string3);
+	kprint("Memory freed successfully! Tests complete!\n");
 }

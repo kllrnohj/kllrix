@@ -8,6 +8,7 @@ void kprintSN(int num, unsigned int radix);
 void kprintUN(unsigned int num, unsigned int radix);
 void clrscr(void);
 void putPixel(int x, int y, unsigned char color);
+void setMode(int xres, int yres, int bitdepth);
 
 #endif
 

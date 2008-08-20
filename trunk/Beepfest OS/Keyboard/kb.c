@@ -43,7 +43,7 @@ void shiftBuffer(){
 
 void keyboard_handler(struct regs *r){
 	unsigned char scancode;
-	scancode = in(0x60); // read the value
+	scancode = inb(0x60); // read the value
 	
 	if(scancode & 0x80){ // break code
 		if(keyval[scancode & ~0x80] == LSHIFT){
