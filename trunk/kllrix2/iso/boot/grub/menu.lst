@@ -1,0 +1,11 @@
+timeout 1
+default 0
+
+title Kllrix
+root (cd)
+kernel /boot/kernel.bin
+
+title Kllrix (Mode 0x115)
+root (cd)
+kernel /boot/kernel.bin
+vbeset 0x115
