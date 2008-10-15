@@ -1,0 +1,31 @@
+/*
+ * colors.h
+ *
+ *  Created on: Oct 6, 2008
+ *      Author: kllrnohj
+ */
+
+#ifndef COLORS_H_
+#define COLORS_H_
+
+enum COLORS
+{
+		 COLOR_BLACK,
+		 COLOR_BLUE,
+		 COLOR_GREEN,
+		 COLOR_CYAN,
+		 COLOR_RED,
+		 COLOR_MAGENTA,
+		 COLOR_BROWN,
+		 COLOR_LIGHT_GRAY,
+		 COLOR_DARK_GRAY,
+		 COLOR_LIGHT_BLUE,
+		 COLOR_LIGHT_GREEN,
+		 COLOR_LIGHT_CYAN,
+		 COLOR_LIGHT_RED,
+		 COLOR_LIGHT_MAGENTA,
+		 COLOR_YELLOW,
+		 COLOR_WHITE,
+};
+
+#endif /* COLORS_H_ */
