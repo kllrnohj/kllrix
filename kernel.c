@@ -206,6 +206,15 @@ void kmain( multiboot_info_t* mbd, unsigned int magic )
 	isrs_install();
 	irq_install();
 	__asm__ __volatile__ ("sti");
+	
+	unsigned char* video = (unsigned char*)0xA0000;
+	int i = 0;
+	for (; i < 255; i++)
+	{
+		video[i] = (unsigned char) i;
+	}
+	
+	// fuck all this shit
 	console_s con;
 	con.buffer = (unsigned short *)0xB8000;
 	con.c_back = 0x0;
