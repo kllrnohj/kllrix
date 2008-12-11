@@ -27,8 +27,8 @@ using namespace std;
 
 SDL_Surface *screen;
 
-#define screen_width 640
-#define screen_height 480
+#define screen_width 800
+#define screen_height 600
 #define true 1
 #define false 0 //You might have to declare True and False.
 
@@ -69,7 +69,7 @@ void draw()
 {
 	double inc_w = cam.getWindow().getWidth() / screen_width;
 	double inc_h = cam.getWindow().getHeight() / screen_height;
-	//start at top-left corner
+	// start at top left
 	double loc_x = cam.getWindow()[0].X();
 	double loc_y = cam.getWindow()[0].Y();
 	Uint8   *bits, bpp;
@@ -78,7 +78,7 @@ void draw()
 	{
 		for (int h = 0; h < screen_height; h++)
 		{
-			double px = w * inc_w + loc_x;
+			double px = w * inc_w +	loc_x;
 			double py = loc_y - h * inc_h;
 			Vector dir = Vector(px, py, cam.getWindow().getZAt(px, py)) - cam.getOrigin();
 			dir = dir.normalize();
@@ -109,7 +109,7 @@ void draw()
 				for ( int l = 0; l < nrPrimitives; l++ )
 				{
 					Primitive* p = scene[l];
-					if (p->IsLight()) 
+					if (p->IsLight())
 					{
 						Primitive* light = p;
 						// calculate diffuse shading
@@ -157,7 +157,7 @@ void draw()
 				r = (pixel>>screen->format->Rshift)&0xFF;
 				g = (pixel>>screen->format->Gshift)&0xFF;
 				b = (pixel>>screen->format->Bshift)&0xFF;
-				*((bits)+screen->format->Rshift/8) = r; 
+				*((bits)+screen->format->Rshift/8) = r;
 				*((bits)+screen->format->Gshift/8) = g;
 				*((bits)+screen->format->Bshift/8) = b;
 			}
@@ -201,11 +201,8 @@ void eventLoop()
 // -------------------- The Game -------------------
 
 int main(int argc, char **argv) {
-	Vector v(1,2,3);
-	Vector z(5,6,7);
-	z += v;
 	if (InitVideo() == false) return 1;
-	
+
 	// init scene
 	Sphere* s = new Sphere(Vector(0, .5, 2), 1);
 	Color scr(255,0,0);
@@ -224,14 +221,14 @@ int main(int argc, char **argv) {
 	s->GetMaterial().SetColor(scb);
 	s->GetMaterial().SetDiffuse(.5);
 	scene[3] = (Primitive*) s;
-	
+
 	Sphere* l = new Sphere(Vector(3, 7, -4), .3, 1);
 	Color lc(255, 255, 255);
 	l->GetMaterial().SetColor(lc);
 	scene[1] = (Primitive*) l;
-	
+
 	nrPrimitives = 4;
-	
+
 	eventLoop();
 	return 0;
 }

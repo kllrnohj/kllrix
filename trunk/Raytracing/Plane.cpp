@@ -3,10 +3,10 @@
 
 Plane::Plane()
 {
-	m_corners[0] = Vector(-2,1.5,0);
-	m_corners[1] = Vector(2,1.5,0);
-	m_corners[2] = Vector(2,-1.5,0);
-	m_corners[3] = Vector(-2,-1.5,0);
+	m_corners[0] = Vector(-4,3,0);
+	m_corners[1] = Vector(4,3,0);
+	m_corners[2] = Vector(4,-3,0);
+	m_corners[3] = Vector(-4,-3,0);
 }
 
 Plane::Plane(const Vector& v1, const Vector& v2, const Vector& v3, const Vector& v4)
@@ -47,4 +47,14 @@ double Plane::getZAt(double x, double y)
 int Plane::Intersect(Ray& ray, double& dist)
 {
 	return 0;
+}
+
+double Plane::getCenterX()
+{
+	return (m_corners[0].X() + m_corners[1].X() + m_corners[2].X() + m_corners[3].X()) / 4;
+}
+
+double Plane::getCenterY()
+{
+	return (m_corners[0].Y() + m_corners[1].Y() + m_corners[2].Y() + m_corners[3].Y()) / 4;
 }

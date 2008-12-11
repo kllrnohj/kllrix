@@ -71,7 +71,7 @@ void VesaVideo::PutCharAt(char c, int col, int row, int fg, int bg)
 	{
 		x = col * m_font->width + 1;
 		unsigned char l = m_font->data[fix + iy];
-		for (int b = m_font->width - 1; b >= 0; b--)
+		for (int b = 7; b >= (8 - m_font->width); b--)
 		{
 			if ((l >> b) & 0x01)
 				PutPixel(x, y, fg);
