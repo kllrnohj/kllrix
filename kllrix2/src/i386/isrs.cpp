@@ -118,6 +118,8 @@ void fault_handler(struct regs *r)
     	printf("cs:\t %#8x\tss:\t %#8x\tds:\t %#8x\n", r->cs, r->ss, r->ds);
     	printf("eflags:\t %#8x\tuseresp: %#8x\n", r->eflags, r->useresp);
     	printf("\nSystem halted.");
-        for (;;);
+
+        for (;;)
+        	__asm__ __volatile__ ("hlt");
     }
 }

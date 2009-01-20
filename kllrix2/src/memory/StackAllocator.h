@@ -14,8 +14,9 @@
 namespace Memory {
 
 #define PAGE_SIZE 4096 // 4kb pages
-static uintptr_t *BootPageDirectory;
+extern uintptr_t *BootPageDirectory;
 extern uintptr_t stack_end; // let the KVirtualAlloc know from where it can start handing out "pages" of the initial 4MB reserve
+extern struct page_directory *PageDirectory;
 
 // "public"
 void Init(multiboot_info_t* mbt);
