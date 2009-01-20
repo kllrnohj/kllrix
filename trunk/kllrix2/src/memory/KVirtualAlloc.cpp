@@ -37,6 +37,7 @@ namespace Memory {
 
 // page bit map of the kernel's initial 4MB using 64kb pages
 static uint64_t kp_bitmap;
+static page_table *PageTables = (page_table*) PAGE_TABLE_STORAGE;
 
 void kVirtualInit()
 {
@@ -57,6 +58,9 @@ void kVirtualInit()
 
 void* kallocVirtualPages(size_t size)
 {
+	static uint32_t c_pde = (KERNEL_VIRTUAL_BASE >> 22) + 1;
+	static uint32_t c_pte = 0;
+
 	// does kp_bitmap have any free space?
 	if (((uint32_t)(kp_bitmap >> 32)) != 0xFFFFFFFF ||
 			((uint32_t)(kp_bitmap & 0xFFFFFFFF)) != 0xFFFFFFFF)
@@ -68,7 +72,7 @@ void* kallocVirtualPages(size_t size)
 		for (int i = 1; i <= 64; i++)
 		{
 			int s = i;
-			for (; !((kp_bitmap >> (64-s)) & 1) && s <= 64; s++);
+			for (; !((kp_bitmap >> (64-s)) & 1) && s <= 64; s++) ;
 			if ((s - i) >= chunk_size)
 			{
 				// set bits
@@ -79,7 +83,12 @@ void* kallocVirtualPages(size_t size)
 		}
 	}
 
-	// failed to find space in the bitmap, for now just fail.
+	// failed to find space in the bitmap
+	for (int p = 0; p < size; p++)
+	{
+	}
+
+	// failed to find any free space :(
 	return 0;
 }
 

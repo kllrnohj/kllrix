@@ -121,7 +121,12 @@ void keyboard_handler(struct regs *r) {
 			kbd_status |= R_SHIFT;
 			Globals::Video->Clear(0xFF0000);
 			break;
+		case 0x58:
+			extern bool USE_SSE;
+			USE_SSE = !USE_SSE;
+			break;
 		default:
+			printf("%#x ", scancode);
 			if (kbd_status & SHIFT)
 				printf("%c", kbdus[scancode + 128]);
 			else

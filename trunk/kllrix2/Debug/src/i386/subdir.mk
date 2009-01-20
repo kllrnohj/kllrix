@@ -4,6 +4,7 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 CPP_SRCS += \
+../src/i386/CPU.cpp \
 ../src/i386/gdt.cpp \
 ../src/i386/idt.cpp \
 ../src/i386/irq.cpp \
@@ -15,6 +16,7 @@ ASM_SRCS += \
 ../src/i386/misc_s.asm 
 
 OBJS += \
+./src/i386/CPU.o \
 ./src/i386/gdt.o \
 ./src/i386/idt.o \
 ./src/i386/irq.o \
@@ -24,6 +26,7 @@ OBJS += \
 ./src/i386/timer.o 
 
 CPP_DEPS += \
+./src/i386/CPU.d \
 ./src/i386/gdt.d \
 ./src/i386/idt.d \
 ./src/i386/irq.d \
@@ -36,7 +39,7 @@ CPP_DEPS += \
 src/i386/%.o: ../src/i386/%.cpp
 	@echo 'Building file: $<'
 	@echo 'Invoking: GCC C++ Compiler'
-	g++ -I"/home/kllrnohj/workspace/kllrix2/src" -O0 -Wall -c -Wextra -nostdlib -nostartfiles -nodefaultlibs -fno-rtti -fno-builtin -fno-exceptions -fomit-frame-pointer -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o"$@" "$<"
+	g++ -I"/home/kllrnohj/Programming/kllrix/kllrix2/src" -O0 -Wall -c -Wextra -nostdlib -nostartfiles -nodefaultlibs -fno-rtti -fno-builtin -fno-exceptions -fomit-frame-pointer -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o"$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 

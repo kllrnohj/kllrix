@@ -20,7 +20,7 @@ ENTRY_ADDR		equ 0
 MODE_TYPE	equ 0
 WIDTH		equ 800
 HEIGHT		equ 600
-DEPTH		equ 32
+DEPTH		equ 24
 
 ; This is the virtual base address of kernel space. It must be used to convert virtual
 ; addresses into physical addresses until paging is enabled. Note that this is not

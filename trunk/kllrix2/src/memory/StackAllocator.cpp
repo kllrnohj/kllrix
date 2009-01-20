@@ -6,6 +6,7 @@
  */
 
 #include "StackAllocator.h"
+#include "kmem.h"
 extern uintptr_t knl_end;
 
 namespace Memory {
@@ -15,11 +16,20 @@ namespace Memory {
 static volatile uintptr_t* pmem_stack;
 static volatile uintptr_t pmem_stack_top;
 uintptr_t stack_end;
+uintptr_t *BootPageDirectory;
+struct page_directory *PageDirectory;
 
 // ---
 
 void Init(multiboot_info_t* mbt)
 {
+	// BootPageDirectory should have been set by now
+	PageDirectory = (page_directory*) BootPageDirectory;
+	// reserve the 4-8mb range for page tables
+	BootPageDirectory[PAGE_TABLE_STORAGE >> 22] = 0x400083;
+	// clear it
+	kmemset((void*)PAGE_TABLE_STORAGE, '0', 0x400000);
+
 	// align to 4kb
 	pmem_stack = (uintptr_t*)(((uintptr_t)&knl_end | 0xFFF)+1);
 	pmem_stack_top = 0;
@@ -45,7 +55,7 @@ void Init(multiboot_info_t* mbt)
 		{
 			for (uintptr_t p = mmap->base_addr_low; p < (mmap->base_addr_low + mmap->length_low); p += 4096)
 			{
-				if (p >= 0x400000) // entire first page_table is spoken for by the kernel
+				if (p >= 0x800000) // entire first two page_tables are spoken for by the kernel
 					FreePhysPage(p); // "delete" it to add it to the stack
 			}
 		}

@@ -21,9 +21,11 @@ public:
 	VesaVideo(struct vbe_controller* controller, struct vbe_mode* mode);
 	virtual ~VesaVideo();
 	void Clear(uint32_t color);
+	void Clear_SSE(uint32_t color);
 	void PutCharAt(char c, int col, int row, int fg, int bg);
 	void PutPixel(uint32_t x, uint32_t y, uint32_t color);
 	uint32_t RGBToUint(uint32_t r, uint32_t g, uint32_t b);
+	void Flush();
 
 protected:
 	struct vbe_controller* m_controller;

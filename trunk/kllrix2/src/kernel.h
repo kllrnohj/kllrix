@@ -17,6 +17,7 @@
 #define inportb inb
 #define outportb outb
 #define KERNEL_VIRTUAL_BASE 0xC0000000
+#define PAGE_TABLE_STORAGE  0xFFC00000
 
 unsigned char inb (unsigned short _port);
 void outb (unsigned short _port, unsigned char _data);
