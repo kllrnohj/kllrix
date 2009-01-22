@@ -215,7 +215,6 @@ void _main(multiboot_info_t* mbt, unsigned int, uintptr_t* bpd) {
 	read_msr(0x277, &eax, &edx);
 	printf("MSR 227H: %#8x %#8x\n", edx, eax);
 	printf("PageDirectory: %#8x\n", Memory::PageDirectory->entries[KERNEL_VIRTUAL_BASE >> 22]);
-	printf("PageDirectory: %#8x\n", Memory::PageDirectory->entries[PAGE_TABLE_STORAGE >> 22]);
 
 	// lets probe the PCI bus :)
 	//PCIDriverManager *pci = new PCIDriverManager();

@@ -54,13 +54,19 @@ void kVirtualInit()
 		}
 	}
 
+	for (int pde = 0; pde < 1024; pde++)
+	{
+		if (PageDirectory->entries[pde].present)
+			continue;
+		// make a new PDE
+		PageDirectory->entries[pde].page_table_address = (PAGE_TABLE_STORAGE + (pde * 0x1000)) >> 12;
+		PageDirectory->entries[pde].read_write = 1;
+		PageDirectory->entries[pde].present = 1;
+	}
 }
 
 void* kallocVirtualPages(size_t size)
 {
-	static uint32_t c_pde = (KERNEL_VIRTUAL_BASE >> 22) + 1;
-	static uint32_t c_pte = 0;
-
 	// does kp_bitmap have any free space?
 	if (((uint32_t)(kp_bitmap >> 32)) != 0xFFFFFFFF ||
 			((uint32_t)(kp_bitmap & 0xFFFFFFFF)) != 0xFFFFFFFF)
@@ -84,6 +90,7 @@ void* kallocVirtualPages(size_t size)
 	}
 
 	// failed to find space in the bitmap
+	static uint32_t c_pte = (KERNEL_VIRTUAL_BASE >> 22) + 1024;
 	for (int p = 0; p < size; p++)
 	{
 	}
