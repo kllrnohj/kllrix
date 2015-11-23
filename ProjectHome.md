@@ -1,0 +1,1 @@
+This is a simple OS/Kernel written purely as a learning exercise. I have no plans to make this into something truly functional. :)
